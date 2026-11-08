@@ -68,6 +68,7 @@ function renderSongs(){
     if(seen.has(clean)){ seen.get(clean).n++; return; } const it={ln:clean,n:1}; seen.set(clean,it); items.push(it); });
   const lines=items.filter(x=>x.ln);
   $("#songs").innerHTML=`<p><button class="link" id="sg-back">← назад</button></p><h1>Песни</h1>
+   <div class="row"><button class="primary" id="go-kara" type="button">🎤 Караоке</button><span class="muted">${lines.length?"Строки подсвечиваются в такт песне.":"Сначала вставь текст песни ниже."}</span></div>
    <p class="sub">Учим песню по словам и строкам. Полный текст песни я в приложение не вкладываю: он защищён авторским правом. Ты вставляешь его сам, и он хранится только у тебя.</p>
    <section class="panel phrase"><p class="eyebrow">${esc(s.artist)}</p>
      <div class="ph-top"><div class="kana word" lang="ja">${esc(s.title)}</div>
@@ -83,8 +84,7 @@ function renderSongs(){
      <textarea id="ly-txt" rows="${lines.length?3:8}" placeholder="Вставь сюда текст песни" lang="ja">${esc(d.text)}</textarea>
      <div class="row"><button class="primary" id="ly-save" type="button">Разобрать</button>${raw.length?`<button class="link" id="ly-clear" type="button">Очистить</button>`:""}${d.hidden.length?`<button class="link" id="ly-unhide" type="button">Вернуть скрытые строки (${d.hidden.length})</button>`:""}</div>
      <p id="ly-status" class="muted"></p>
-     ${lines.length?`<p class="muted">Если слово в песне поют не так, как по словарю (например, 昨夜 по словарю さくや, а в песнях часто ゆうべ), открой «Разбор» строки и нажми «поют иначе». Чтение поменяется везде, и в караоке тоже.</p>
-     <div class="row"><button class="primary" id="go-kara" type="button">🎤 Караоке</button><span class="muted">Строки подсвечиваются в такт песне.</span></div>`:""}
+     ${lines.length?`<p class="muted">Если слово в песне поют не так, как по словарю (например, 昨夜 по словарю さくや, а в песнях часто ゆうべ), открой «Разбор» строки и нажми «поют иначе». Чтение поменяется везде, и в караоке тоже.</p>`:""}
    </section>
    <div id="ly-out"></div>
    <p class="muted credit">Разбор текста: kuromoji.js и словарь IPADIC (Apache 2.0).</p>`;
