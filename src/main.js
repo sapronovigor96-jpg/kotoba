@@ -25,7 +25,9 @@ const words=()=>WORDS0.concat(S.custom.map(c=>Object.assign({group:"mine",custom
 const wordBy=f=>words().find(w=>w.front===f);
 
 /* ---------- карточки и план ---------- */
-function noteFor(id){ const [t,f]=[id.slice(0,id.indexOf(":")),id.slice(id.indexOf(":")+1)]; return {type:t, n: t[0]==="k"?KANA[f]:wordBy(f)}; }
+function noteFor(id){ const [t,f]=[id.slice(0,id.indexOf(":")),id.slice(id.indexOf(":")+1)];
+  if(t==="sk"){ const x=sek()&&typeof skBy!=="undefined"&&skBy(f); return {type:t, n:x?{front:x.jp,kana:x.kana,ru:x.ru,romaji:toRomaji(x.kana),note:x.tip,where:x.where,say:x.kana}:null}; }
+  return {type:t, n: t[0]==="k"?KANA[f]:wordBy(f)}; }
 function candidates(){
   // новые карточки, которые уже можно показывать (после урока и первого успешного повторения)
   const out=[];
@@ -33,6 +35,11 @@ function candidates(){
     const r=st("wr:"+w.front);
     if(r.state==="new" && w.custom) out.push("wr:"+w.front);
     if(r.state==="review" && r.s>=3 && st("wp:"+w.front).state==="new") out.push("wp:"+w.front);
+  }
+  if(sek()&&S.settings.sekiroKanji&&typeof SK!=="undefined"){
+    const ds=dayStart(Date.now()), today=new Set(S.log.filter(l=>l.t>=ds&&l.first&&l.id.startsWith("sk:")).map(l=>l.id)).size;
+    const order=SK.filter(x=>x.key).concat(SK.filter(x=>!x.key));
+    out.unshift(...order.filter(x=>st("sk:"+x.jp).state==="new").slice(0,Math.max(0,3-today)).map(x=>"sk:"+x.jp));
   }
   return out;
 }
@@ -113,12 +120,12 @@ function renderHome(){
     </section>` : `<section class="lesson-next"><p class="eyebrow">Уроки</p><h2 class="lt">Хирагана пройдена целиком</h2><p class="muted">Дальше по плану катакана и урок 1 Нечаевой. Их добавим в следующей версии. А пока повторения и свои слова в «Справочнике».</p></section>`;
   $("#home").innerHTML=`
     <p class="eyebrow">${new Date().toLocaleDateString("ru-RU",{weekday:"long",day:"numeric",month:"long"})}</p>
-    ${!started?`<h1>Начнём с хираганы</h1><p class="sub">Сначала объясню, покажу и дам потрогать каждый знак. Проверки появятся только после этого, и они ни на что не влияют, кроме расписания повторений.</p>`:
+    ${!started&&!rev?`<h1>Начнём с хираганы</h1><p class="sub">Сначала объясню, покажу и дам потрогать каждый знак. Проверки появятся только после этого, и они ни на что не влияют, кроме расписания повторений.</p>`:
       rev?`<h1>Повторение: ${rev} ${plural(rev,"карточка","карточки","карточек")}</h1><p class="sub">Только то, что ты уже прошёл. Примерно ${mins} мин.</p><button class="primary" id="go-review">Повторить</button>`
       :`<h1>Повторять сегодня нечего</h1><p class="sub">${forecastLine()}</p>`}
     ${back}
     ${lessonBlock}
-    <section class="panel fun"><p class="eyebrow">Для удовольствия</p>${sek()?`<h2>Фразы из Sekiro и песни</h2><p lang="ja" class="fun-jp">眠れ、永遠に</p><p class="muted">«Спи вечно» и ещё две фразы с озвучкой и разбором по словам. А ещё раздел песен: вставь текст любимой песни, и приложение разберёт его по словам со звуком.</p><div class="row"><button class="ghost" id="go-ph">Фразы из Sekiro</button><button class="ghost" id="go-sg">Песни</button></div>`:`<h2>Песни</h2><p class="muted">Вставь текст любимой японской песни, и приложение подпишет чтения, разберёт строки по словам и озвучит их по слогам. Можно открыть уже сейчас.</p><div class="row"><button class="ghost" id="go-sg">Песни</button></div>`}</section>
+    <section class="panel fun"><p class="eyebrow">Для удовольствия</p>${sek()?`<h2>Sekiro и песни</h2><p lang="ja" class="fun-jp">危 · 死 · 忍殺</p><p class="muted">Все иероглифы, которые игра показывает на экране, с подсказками, что делать, и фразы с озвучкой. А ещё раздел песен: вставь текст любимой песни, и приложение разберёт его по словам со звуком.</p><div class="row"><button class="ghost" id="go-ph">Sekiro</button><button class="ghost" id="go-sg">Песни</button></div>`:`<h2>Песни</h2><p class="muted">Вставь текст любимой японской песни, и приложение подпишет чтения, разберёт строки по словам и озвучит их по слогам. Можно открыть уже сейчас.</p><div class="row"><button class="ghost" id="go-sg">Песни</button></div>`}</section>
     ${started?offline():""}`;
   $("#go-lesson")?.addEventListener("click",()=>startLesson(nl.id));
   $("#go-review")?.addEventListener("click",startSession);
@@ -320,10 +327,11 @@ function next(){
 function renderReview(){
   const item=sess.cur, {type,n}=noteFor(item.id), isNew=st(item.id).state==="new"&&!item.practice;
   const left=sess.q.length-sess.i;
-  const label={k:"чтение знака",kw:"письмо",wr:"слово",wp:"слово по-японски"}[type];
+  const label={k:"чтение знака",kw:"письмо",wr:"слово",wp:"слово по-японски",sk:"иероглиф из Sekiro"}[type];
   let prompt, field="", reveal=false;
   if(type==="k"){ prompt=`<div class="kana big" lang="ja">${esc(n.front)}</div><p class="ask">Как читается?</p>`; field=inputField("ромадзи, например ka"); }
   else if(type==="kw"){ prompt=`<div class="ru">${esc(n.romaji)} <span class="muted">${esc(n.ru)}</span></div><p class="ask">Напиши знак по памяти. Черты проверяются сразу.</p><div id="wbox"></div>`; reveal=true; }
+  else if(type==="sk"){ prompt=`<div class="kana word" lang="ja">${esc(n.front)}</div><p class="ask">${isNew?"Новый знак из игры: посмотри ответ и запомни.":"Что значит и как читается? Вспомни, потом открой."}</p>`; reveal=true; }
   else if(type==="wr"){ prompt=`<div class="kana word" lang="ja">${esc(n.front)}</div><p class="ask">${isNew?"Новое слово: посмотри ответ и запомни.":"Что значит? Вспомни, потом открой."}</p>`; reveal=true; }
   else { prompt=`<div class="ru">${esc(n.ru)}</div><p class="ask">${isNew?"Новое упражнение: напиши слово по-японски (латиница превратится в кану)":"Напиши по-японски"}</p>`; field=inputField("например neko"); }
   $("#session").innerHTML=`<div class="meta"><span>${label}</span><span>${item.practice?"ещё раз · ":""}осталось ${left}</span></div>
@@ -340,20 +348,22 @@ function renderReview(){
       showAnswer(ok,v); };
     $("#idk").onclick=()=>showAnswer(false,"");
   } else $("#reveal").onclick=()=>{ if(type==="kw") sess.wres={mistakes:3,hints:0,shown:1}; showAnswer(type==="kw"?false:null,""); };
-  if(type==="wr"&&isNew) showAnswer(null,"",true);
+  if((type==="wr"||type==="sk")&&isNew) showAnswer(null,"",true);
 }
 function showAnswer(ok,typed,preview=false){
   const item=sess.cur, {type,n}=noteFor(item.id);
   let sol;
   if(type==="k") sol=`<div class="sol"><b>${esc(n.romaji)}</b> <span class="muted">(${esc(n.ru)})</span></div>`;
   else if(type==="kw"){ const r=sess.wres||{mistakes:0,hints:0,shown:0}; sol=`<div class="cmp">${strokeSVG(n.front,"strokes small")}</div><p class="muted">Ошибок в чертах: ${r.mistakes}, подсказок: ${r.hints}${r.shown?", черт показано: "+r.shown:""}.</p>`; }
+  else if(type==="sk") sol=`<div class="sol"><b>${esc(n.ru)}</b></div><p><b lang="ja">${esc(n.kana)}</b> <span class="muted">${esc(n.romaji)}</span></p><p class="muted">${esc(n.where)}</p>${typeof skDetail!=="undefined"?skDetail(skBy(n.front)):""}`;
   else if(type==="wr") sol=`<div class="sol"><b>${esc(n.ru)}</b> <span class="muted">${esc(n.romaji)}</span></div>`;
   else sol=`<div class="sol"><span class="kana mid" lang="ja">${esc(n.front)}</span> <span class="muted">${esc(n.romaji)}</span></div>`;
   const verdict= type==="kw"? "" : ok===true?`<p class="ok">Верно${sess.hinted?" (с подсказкой)":""}</p>`: ok===false?`<p class="miss">${typed?`Твой ответ: ${esc(toKana(typed))}. `:""}Ничего страшного: после ошибки правильный ответ держится крепче.</p>`:"";
   $("#answer").innerHTML=`${verdict}${sol}${n.note && (ok!==true||type!=="k")?`<p class="mnem">${esc(n.note)}</p>`:""}${canSpeak()?`<button class="link" id="say">▶ Произношение</button>`:""}`;
-  $("#say")?.addEventListener("click",()=>speak(n.front));
+  $("#say")?.addEventListener("click",()=>speak(n.say||n.front));
   if(type==="kw") animate($("#answer svg"));
-  if(S.settings.audio) speak(n.front);
+  if(type==="sk") $("#answer").querySelectorAll("svg.strokes").forEach(animate);
+  if(S.settings.audio) speak(n.say||n.front);
   if($("#ans")) $("#ans").disabled=true;
   sess.revealed=true;
   let sugg= ok===false?1:3; if(ok&&sess.hinted) sugg=2; if(type==="kw"&&sess.wres) sugg=gradeFromWriting(sess.wres);
@@ -395,7 +405,7 @@ function renderKana(){
     return `<button class="cell ${c}" data-k="${k}"><span lang="ja">${k}</span><small>${esc(KANA[k].romaji)}</small></button>`; };
   const grid=rows=>rows.map(r=>`<div class="grow">${[...r.padEnd(5," ")].map(cell).join("")}</div>`).join("");
   $("#kana").innerHTML=`<h1>Справочник</h1><p class="sub">Нажми на знак, чтобы увидеть порядок черт, мнемонику и услышать звук. Цвет: <span class="cell-l n">не пройден</span> <span class="cell-l l">учится</span> <span class="cell-l m">закреплён</span></p>
-   <div class="row">${sek()?`<button class="ghost" id="k-ph">Фразы из Sekiro</button>`:""}<button class="ghost" id="k-sg">Песни</button></div>
+   <div class="row">${sek()?`<button class="ghost" id="k-ph">Sekiro</button>`:""}<button class="ghost" id="k-sg">Песни</button></div>
    <div id="detail"></div>
    <section class="panel"><h2>Хирагана</h2><div class="kgrid">${grid(GRID[0])}</div></section>
    <section class="panel"><h2>Звонкие</h2><div class="kgrid">${grid(GRID[1])}</div></section>

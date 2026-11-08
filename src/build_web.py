@@ -4,7 +4,7 @@ OUT='/mnt/project-files/japanese/app/web/site'
 cfg=json.load(open('supa.json'))
 os.makedirs(OUT+'/dict',exist_ok=True)
 b=open('shell2.html').read()
-for k,f in [('__DATA__','data.json'),('__STROKES__','strokes.json'),('__LESSONS__','lessons.js'),('__CORE__','core.js'),('__WRITER__','writer.js'),('__PHRASES__','phrases.js'),('__GLOSS__','gloss.js'),('__SONGS__','songs.js'),('__KUROMOJI__','kuromoji.patched.js'),('__SYNC__','sync.js'),('__MAIN__','main.js')]:
+for k,f in [('__DATA__','data.json'),('__STROKES__','strokes.json'),('__LESSONS__','lessons.js'),('__CORE__','core.js'),('__WRITER__','writer.js'),('__PHRASES__','phrases.js'),('__GLOSS__','gloss.js'),('__SONGS__','songs.js'),('__SEKIRO__','sekiro.js'),('__KUROMOJI__','kuromoji.patched.js'),('__SYNC__','sync.js'),('__MAIN__','main.js')]:
     src=open(f).read()
     if k=='__SYNC__': src='const SUPA='+json.dumps(cfg)+';\n'+src
     b=b.replace(k,src)

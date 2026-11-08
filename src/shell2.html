@@ -214,7 +214,7 @@ textarea#ly-txt{font:16px/1.5 var(--f-jp);width:100%;margin:8px 0}
 #ly-out{background:var(--sheet);border:1px solid var(--line);border-radius:12px;padding:4px 16px 12px;margin-bottom:12px}
 #ly-out:empty{display:none}
 details summary{cursor:pointer;color:var(--ai);margin:8px 0}
-#who-st:empty,#who-st:empty+#sync-st{display:none}
+.who-line:has(#who-st:empty){display:none}
 .who-line #sync-st{opacity:.7}
 #login{min-height:100%;display:grid;place-items:center;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:40px}
 .login-in{width:100%;max-width:360px;display:grid;gap:12px}
@@ -223,6 +223,16 @@ details summary{cursor:pointer;color:var(--ai);margin:8px 0}
 .who-b[aria-pressed="true"]{background:var(--ai);color:var(--sheet);border-color:var(--ai)}
 .pinl{font-size:14px;color:var(--muted)}
 #pin{font-size:24px;letter-spacing:.3em;text-align:center;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--sheet);color:var(--ink)}
+.skgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px;margin:10px 0}
+.skb{display:grid;justify-items:center;gap:2px;padding:10px 4px;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink);cursor:pointer}
+.skb span{font:30px/1.2 var(--f-jp)} .skb small{font-size:11px;color:var(--muted);text-align:center}
+.skb.key{border-color:var(--rust)} .skb.key span{color:var(--rust)}
+.skdet{background:var(--paper);border-radius:12px;padding:12px 14px;margin:8px 0}
+.skdet .kana.word{text-align:left;margin:0}
+.skchars{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:8px 0}
+.skc{display:grid;justify-items:center;width:120px}
+.skc svg.strokes.small{max-width:120px;background:var(--sheet)}
+.ph-h{margin:20px 0 10px}
 /* письмо */
 .wsvg{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:crosshair}
 .wsvg path,.wsvg polyline{fill:none;stroke-linecap:round;stroke-linejoin:round}
@@ -270,6 +280,7 @@ __WRITER__
 __PHRASES__
 __GLOSS__
 __SONGS__
+__SEKIRO__
 __SYNC__
 __MAIN__
 </script>

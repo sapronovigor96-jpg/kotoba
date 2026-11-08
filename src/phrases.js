@@ -28,7 +28,7 @@ function kanaSpans(str,known){ return [...str].map(c=>KANA[c]?`<span class="kc${
 function renderPhrases(){
   const known=knownKana(), voiceNote = !canSpeak()? "Этот браузер не умеет озвучивать текст. Попробуй Chrome, Edge или Safari."
     : jaVoice? "" : `Японский голос в системе не найден, поэтому озвучка может звучать по-английски или молчать. Как добавить: на Android — Настройки → Синтез речи → Google → установить японский; на iPhone — Настройки → Универсальный доступ → Устное содержимое → Голоса → японский; на Windows — Параметры → Время и язык → Речь → добавить японский.`;
-  $("#phrases").innerHTML=`<p><button class="link" id="ph-back">← назад</button></p><h1>Фразы из Sekiro</h1>
+  $("#phrases").innerHTML=`<p><button class="link" id="ph-back">← назад</button></p><h1>Sekiro</h1><div id="skbox"></div><h2 class="ph-h">Фразы</h2>
    <p class="sub">Чтобы уже сейчас было что сказать. Слушай по слогам, потом медленно по словам, потом в обычном темпе и повторяй вслух вслед за голосом: это называется шэдоуинг. Знаки, которые ты уже прошёл, подсвечены.</p>
    ${voiceNote?`<p class="note">${voiceNote}</p>`:""}
    ${PHRASES.map((p,i)=>`<section class="panel phrase">
@@ -43,6 +43,7 @@ function renderPhrases(){
         <span class="wjp" lang="ja">${esc(w.jp)}</span><span><b lang="ja">${esc(w.kana)}</b> <span class="muted">${esc(w.romaji)}</span><br>${esc(w.ru)}<br><small class="muted">${esc(w.note)}</small></span></div>`).join("")}</div>
    </section>`).join("")}
    <p class="muted">Иероглифы пока учить не нужно: достаточно узнавать их в игре и знать, как фраза звучит. Каждый новый урок хираганы подсветит здесь ещё больше знаков.</p>`;
+  renderSekiroKanji($("#skbox"));
   $("#ph-back").onclick=()=>history.length>1?go(prevView||"home"):go("home");
   document.querySelectorAll(".play").forEach(b=>b.onclick=()=>{
     if(b.dataset.p!==undefined){ const p=PHRASES[+b.dataset.p], m=b.dataset.m;
