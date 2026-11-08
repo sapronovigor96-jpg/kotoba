@@ -89,15 +89,16 @@ function animate(svg){
 }
 
 /* ---------- навигация ---------- */
-const VIEWS=["home","lessons","kana","progress","options","phrases","songs"];
+const VIEWS=["home","lessons","kana","progress","options","phrases","songs","karaoke"];
 let L=null, sess=null, prevView="home", curView="home";
 function go(v){
   if(v!==curView){ prevView=curView; curView=v; }
+  if(v!=="karaoke"&&typeof karaStop!=="undefined") karaStop();
   if(sess && v!=="session") sess=null;
   if(L && v!=="lesson") L=null;
   document.querySelectorAll("[data-view]").forEach(el=>el.hidden=el.dataset.view!==v);
   document.querySelectorAll("nav button").forEach(b=>b.setAttribute("aria-current",b.dataset.go===v?"page":"false"));
-  ({home:renderHome,lessons:renderLessons,kana:renderKana,progress:renderProgress,options:renderOptions,phrases:renderPhrases,songs:renderSongs})[v]?.();
+  ({home:renderHome,lessons:renderLessons,kana:renderKana,progress:renderProgress,options:renderOptions,phrases:renderPhrases,songs:renderSongs,karaoke:renderKaraoke})[v]?.();
   if(VIEWS.includes(v)){ try{ history.replaceState(null,"",v==="home"?location.pathname:"#"+v); }catch(e){} }
   window.scrollTo(0,0);
 }
