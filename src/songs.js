@@ -241,3 +241,45 @@ function renderKaraoke(){
       els[i].querySelector(".kjp").innerHTML=g.map(x=>x.parts.map(p=>rubyHTML(p.surf,p.read)).join("")).join(" ");
       els[i].querySelector(".kro").textContent=toRomaji(g.map(x=>x.parts.map(p=>p.pron).join("")).join(" ")); }); }).catch(()=>{});
 }
+/* ---------- слово с русского: перевод и в повторения ---------- */
+const MM="https://api.mymemory.translated.net/get";
+async function mmTranslate(q,pair){
+  const r=await fetch(`${MM}?q=${encodeURIComponent(q)}&langpair=${pair}`); const j=await r.json();
+  const main=j&&j.responseData&&j.responseData.translatedText||"";
+  if(/MYMEMORY WARNING|QUOTA/i.test(main)||j.quotaFinished) throw new Error("quota");
+  return {main, matches:(j.matches||[]).sort((a,b)=>(+b.quality||0)-(+a.quality||0)).map(m=>m.translation)};
+}
+const isJa=s=>/[぀-ヿ一-鿿]/.test(s);
+function renderTranslate(box){
+  box.innerHTML=`<section class="panel"><h2>Добавить слово с русского</h2>
+    <p class="muted">Напиши слово по-русски. Я найду японские варианты с чтением и звуком, а ты выберешь нужный, и он уйдёт в повторения.</p>
+    <form id="tr-f" class="row trf"><input id="tr-q" placeholder="например, луна" autocomplete="off" required><button class="primary" type="submit">Перевести</button></form>
+    <p id="tr-msg" class="muted"></p><div id="tr-out"></div>
+    <p class="muted credit">Перевод: сервис MyMemory, нужен интернет. Он автоматический, поэтому смотри на обратный перевод: если там не то, что ты хотел, возьми другой вариант.</p></section>`;
+  const msg=t=>{ $("#tr-msg").textContent=t; };
+  $("#tr-f").onsubmit=async e=>{ e.preventDefault(); const q=$("#tr-q").value.trim().toLowerCase(); if(!q) return;
+    $("#tr-out").innerHTML=""; msg("Перевожу…");
+    let res; try{ res=await mmTranslate(q,"ru|ja"); }
+    catch(err){ msg(err.message==="quota"?"Переводчик на сегодня устал: дневной лимит закончился. Попробуй завтра или добавь слово вручную ниже."
+      :"Переводчик не отвечает. Проверь интернет. В версии по ссылке перевод может не работать, на сайте должен."); return; }
+    const seen=new Set(), cands=[];
+    for(const c0 of [res.main,...res.matches]){ const c=String(c0||"").replace(/[。．.!！?？「」]/g,"").trim(); if(!c||!isJa(c)||c.length>16||seen.has(c)) continue; seen.add(c); cands.push(c); if(cands.length>=4) break; }
+    if(!cands.length){ msg("Не нашёл японского перевода. Попробуй другую форму слова (например, начальную: «бежать», а не «бегу»)."); return; }
+    msg("Подписываю чтения… В первый раз загружается словарь, это до минуты.");
+    let t; try{ t=await getTokenizer(); }catch(err){ msg("Не загрузился словарь для чтений. Обнови страницу."); return; }
+    msg("");
+    const items=cands.map(c=>{ const ts=t.tokenize(c); const read=kata2hira(ts.map(x=>x.reading&&x.reading!=="*"?x.reading:x.surface_form).join("")), pron=kata2hira(ts.map(x=>x.pronunciation&&x.pronunciation!=="*"?x.pronunciation:x.surface_form).join("")); const kat=/^[ァ-ヶー・]+$/.test(c); return {jp:c,read:kat?c:read,pron}; });
+    $("#tr-out").innerHTML=items.map((x,i)=>`<div class="wb trc"><button class="link play" data-tp="${i}" aria-label="Послушать">▶</button>
+      <span class="wjp" lang="ja">${rubyHTML(x.jp,x.read)}</span>
+      <span><b lang="ja">${esc(x.read)}</b> <span class="muted">${esc(toRomaji(x.pron))}</span>${i===0?` <small class="muted">· главный вариант</small>`:""}<br>
+      <small class="muted" id="tr-back-${i}">обратный перевод…</small><br>
+      <button class="ghost" data-ta="${i}" type="button">Учить это</button></span></div>`).join("");
+    $("#tr-out").querySelectorAll("[data-tp]").forEach(b=>b.onclick=()=>speak(items[+b.dataset.tp].pron,0.8));
+    $("#tr-out").querySelectorAll("[data-ta]").forEach(b=>b.onclick=()=>{ const x=items[+b.dataset.ta], front=x.read;
+      if(words().some(w=>w.front===front)){ b.textContent="Уже есть в словах"; b.disabled=true; return; }
+      S.custom.push({kind:"word",front,romaji:toRomaji(x.pron),ru:q,note:hasKanji(x.jp)?x.jp:(x.jp!==front?x.jp:"")});
+      save(); b.textContent="Добавлено в повторения"; b.disabled=true; });
+    items.forEach((x,i)=>mmTranslate(x.jp,"ja|ru").then(r=>{ const el=$("#tr-back-"+i); if(el) el.textContent="обратно: "+(r.main||"?"); })
+      .catch(()=>{ const el=$("#tr-back-"+i); if(el) el.textContent=""; }));
+  };
+}

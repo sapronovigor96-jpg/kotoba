@@ -126,10 +126,12 @@ function renderHome(){
       :`<h1>Повторять сегодня нечего</h1><p class="sub">${forecastLine()}</p>`}
     ${back}
     ${lessonBlock}
+    <p class="row"><button class="ghost" id="go-tr">＋ Слово с русского</button><span class="muted">Напиши по-русски, выбери японский вариант, и оно уйдёт в повторения.</span></p>
     <section class="panel fun"><p class="eyebrow">Для удовольствия</p>${sek()?`<h2>Sekiro и песни</h2><p lang="ja" class="fun-jp">危 · 死 · 忍殺</p><p class="muted">Все иероглифы, которые игра показывает на экране, с подсказками, что делать, и фразы с озвучкой. А ещё раздел песен: вставь текст любимой песни, и приложение разберёт его по словам со звуком.</p><div class="row"><button class="ghost" id="go-ph">Sekiro</button><button class="ghost" id="go-sg">Песни</button></div>`:`<h2>Песни</h2><p class="muted">Вставь текст любимой японской песни, и приложение подпишет чтения, разберёт строки по словам и озвучит их по слогам. Можно открыть уже сейчас.</p><div class="row"><button class="ghost" id="go-sg">Песни</button></div>`}</section>
     ${started?offline():""}`;
   $("#go-lesson")?.addEventListener("click",()=>startLesson(nl.id));
   $("#go-review")?.addEventListener("click",startSession);
+  $("#go-tr").onclick=()=>{ go("kana"); const q=$("#tr-q"); if(q){ q.scrollIntoView({block:"center"}); q.focus(); } };
   $("#go-ph")?.addEventListener("click",()=>go("phrases")); $("#go-sg").onclick=()=>go("songs");
 }
 function offline(){
@@ -345,7 +347,7 @@ function renderReview(){
   if($("#hint")) $("#hint").onclick=()=>{ sess.hinted=true; $("#answer").innerHTML=`<p class="mnem">${esc(type==="k"?n.note:"Начинается на "+[...n.front][0]+(n.note?" · "+n.note:""))}</p>`; $("#hint").remove(); inp.focus(); };
   if(inp){ inp.oninput=()=>$("#preview").textContent=toKana(inp.value,false); inp.focus();
     $("#check").onclick=()=>{ const v=inp.value.trim(); if(!v) return;
-      const ok = type==="k"? isRightKana(n.front,v) : (toKana(v)===n.front || v.toLowerCase()===n.romaji.toLowerCase());
+      const ok = type==="k"? isRightKana(n.front,v) : (toKana(v)===n.front || toKana(v)===kata2hira(n.front) || v.toLowerCase()===n.romaji.toLowerCase());
       showAnswer(ok,v); };
     $("#idk").onclick=()=>showAnswer(false,"");
   } else $("#reveal").onclick=()=>{ if(type==="kw") sess.wres={mistakes:3,hints:0,shown:1}; showAnswer(type==="kw"?false:null,""); };
@@ -407,6 +409,7 @@ function renderKana(){
   const grid=rows=>rows.map(r=>`<div class="grow">${[...r.padEnd(5," ")].map(cell).join("")}</div>`).join("");
   $("#kana").innerHTML=`<h1>Справочник</h1><p class="sub">Нажми на знак, чтобы увидеть порядок черт, мнемонику и услышать звук. Цвет: <span class="cell-l n">не пройден</span> <span class="cell-l l">учится</span> <span class="cell-l m">закреплён</span></p>
    <div class="row">${sek()?`<button class="ghost" id="k-ph">Sekiro</button>`:""}<button class="ghost" id="k-sg">Песни</button></div>
+   <div id="trbox"></div>
    <div id="detail"></div>
    <section class="panel"><h2>Хирагана</h2><div class="kgrid">${grid(GRID[0])}</div></section>
    <section class="panel"><h2>Звонкие</h2><div class="kgrid">${grid(GRID[1])}</div></section>
@@ -425,6 +428,7 @@ function renderKana(){
     const svg=$("#detail svg"); animate(svg); $("#d-re").onclick=()=>animate(svg); $("#d-say")?.addEventListener("click",()=>speak(k)); $("#d-x").onclick=()=>$("#detail").innerHTML="";
     speak(k); $("#detail").scrollIntoView({behavior:"smooth",block:"nearest"}); });
   $("#k-ph")?.addEventListener("click",()=>go("phrases")); $("#k-sg").onclick=()=>go("songs");
+  renderTranslate($("#trbox"));
   const jp=$("#f-jp"); jp.oninput=()=>$("#f-pv").textContent=toKana(jp.value,false);
   $("#addf").onsubmit=e=>{ e.preventDefault(); const front=toKana(jp.value.trim()); if(!front) return;
     if(words().some(w=>w.front===front)){ $("#f-msg").textContent="Такое слово уже есть."; return; }

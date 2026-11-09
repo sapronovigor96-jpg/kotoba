@@ -202,7 +202,8 @@ svg.strokes .anim path{stroke:var(--ink);stroke-width:4.5}
 .wb .play{font-size:16px;text-decoration:none;padding:2px 4px}
 .wjp{font:26px/1.2 var(--f-jp);min-width:2.2em}
 .lylines{display:grid}
-.ksrc input{flex:1;min-width:0;font:inherit;font-size:16px;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.trc .ghost{margin-top:6px}
+.trf input,.ksrc input{flex:1;min-width:0;font:inherit;font-size:16px;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
 .filebtn{display:inline-block;cursor:pointer}
 .kplayer iframe,.kplayer video{width:100%;height:auto;aspect-ratio:16/9;border:0;border-radius:10px;margin-top:10px;display:block}
 .kplayer audio{width:100%;margin-top:10px}
@@ -9882,6 +9883,48 @@ function renderKaraoke(){
       els[i].querySelector(".kjp").innerHTML=g.map(x=>x.parts.map(p=>rubyHTML(p.surf,p.read)).join("")).join(" ");
       els[i].querySelector(".kro").textContent=toRomaji(g.map(x=>x.parts.map(p=>p.pron).join("")).join(" ")); }); }).catch(()=>{});
 }
+/* ---------- слово с русского: перевод и в повторения ---------- */
+const MM="https://api.mymemory.translated.net/get";
+async function mmTranslate(q,pair){
+  const r=await fetch(`${MM}?q=${encodeURIComponent(q)}&langpair=${pair}`); const j=await r.json();
+  const main=j&&j.responseData&&j.responseData.translatedText||"";
+  if(/MYMEMORY WARNING|QUOTA/i.test(main)||j.quotaFinished) throw new Error("quota");
+  return {main, matches:(j.matches||[]).sort((a,b)=>(+b.quality||0)-(+a.quality||0)).map(m=>m.translation)};
+}
+const isJa=s=>/[぀-ヿ一-鿿]/.test(s);
+function renderTranslate(box){
+  box.innerHTML=`<section class="panel"><h2>Добавить слово с русского</h2>
+    <p class="muted">Напиши слово по-русски. Я найду японские варианты с чтением и звуком, а ты выберешь нужный, и он уйдёт в повторения.</p>
+    <form id="tr-f" class="row trf"><input id="tr-q" placeholder="например, луна" autocomplete="off" required><button class="primary" type="submit">Перевести</button></form>
+    <p id="tr-msg" class="muted"></p><div id="tr-out"></div>
+    <p class="muted credit">Перевод: сервис MyMemory, нужен интернет. Он автоматический, поэтому смотри на обратный перевод: если там не то, что ты хотел, возьми другой вариант.</p></section>`;
+  const msg=t=>{ $("#tr-msg").textContent=t; };
+  $("#tr-f").onsubmit=async e=>{ e.preventDefault(); const q=$("#tr-q").value.trim().toLowerCase(); if(!q) return;
+    $("#tr-out").innerHTML=""; msg("Перевожу…");
+    let res; try{ res=await mmTranslate(q,"ru|ja"); }
+    catch(err){ msg(err.message==="quota"?"Переводчик на сегодня устал: дневной лимит закончился. Попробуй завтра или добавь слово вручную ниже."
+      :"Переводчик не отвечает. Проверь интернет. В версии по ссылке перевод может не работать, на сайте должен."); return; }
+    const seen=new Set(), cands=[];
+    for(const c0 of [res.main,...res.matches]){ const c=String(c0||"").replace(/[。．.!！?？「」]/g,"").trim(); if(!c||!isJa(c)||c.length>16||seen.has(c)) continue; seen.add(c); cands.push(c); if(cands.length>=4) break; }
+    if(!cands.length){ msg("Не нашёл японского перевода. Попробуй другую форму слова (например, начальную: «бежать», а не «бегу»)."); return; }
+    msg("Подписываю чтения… В первый раз загружается словарь, это до минуты.");
+    let t; try{ t=await getTokenizer(); }catch(err){ msg("Не загрузился словарь для чтений. Обнови страницу."); return; }
+    msg("");
+    const items=cands.map(c=>{ const ts=t.tokenize(c); const read=kata2hira(ts.map(x=>x.reading&&x.reading!=="*"?x.reading:x.surface_form).join("")), pron=kata2hira(ts.map(x=>x.pronunciation&&x.pronunciation!=="*"?x.pronunciation:x.surface_form).join("")); const kat=/^[ァ-ヶー・]+$/.test(c); return {jp:c,read:kat?c:read,pron}; });
+    $("#tr-out").innerHTML=items.map((x,i)=>`<div class="wb trc"><button class="link play" data-tp="${i}" aria-label="Послушать">▶</button>
+      <span class="wjp" lang="ja">${rubyHTML(x.jp,x.read)}</span>
+      <span><b lang="ja">${esc(x.read)}</b> <span class="muted">${esc(toRomaji(x.pron))}</span>${i===0?` <small class="muted">· главный вариант</small>`:""}<br>
+      <small class="muted" id="tr-back-${i}">обратный перевод…</small><br>
+      <button class="ghost" data-ta="${i}" type="button">Учить это</button></span></div>`).join("");
+    $("#tr-out").querySelectorAll("[data-tp]").forEach(b=>b.onclick=()=>speak(items[+b.dataset.tp].pron,0.8));
+    $("#tr-out").querySelectorAll("[data-ta]").forEach(b=>b.onclick=()=>{ const x=items[+b.dataset.ta], front=x.read;
+      if(words().some(w=>w.front===front)){ b.textContent="Уже есть в словах"; b.disabled=true; return; }
+      S.custom.push({kind:"word",front,romaji:toRomaji(x.pron),ru:q,note:hasKanji(x.jp)?x.jp:(x.jp!==front?x.jp:"")});
+      save(); b.textContent="Добавлено в повторения"; b.disabled=true; });
+    items.forEach((x,i)=>mmTranslate(x.jp,"ja|ru").then(r=>{ const el=$("#tr-back-"+i); if(el) el.textContent="обратно: "+(r.main||"?"); })
+      .catch(()=>{ const el=$("#tr-back-"+i); if(el) el.textContent=""; }));
+  };
+}
 
 /* ---------- иероглифы с экрана Sekiro (только профиль с Sekiro) ---------- */
 const SK=[
@@ -10145,10 +10188,12 @@ function renderHome(){
       :`<h1>Повторять сегодня нечего</h1><p class="sub">${forecastLine()}</p>`}
     ${back}
     ${lessonBlock}
+    <p class="row"><button class="ghost" id="go-tr">＋ Слово с русского</button><span class="muted">Напиши по-русски, выбери японский вариант, и оно уйдёт в повторения.</span></p>
     <section class="panel fun"><p class="eyebrow">Для удовольствия</p>${sek()?`<h2>Sekiro и песни</h2><p lang="ja" class="fun-jp">危 · 死 · 忍殺</p><p class="muted">Все иероглифы, которые игра показывает на экране, с подсказками, что делать, и фразы с озвучкой. А ещё раздел песен: вставь текст любимой песни, и приложение разберёт его по словам со звуком.</p><div class="row"><button class="ghost" id="go-ph">Sekiro</button><button class="ghost" id="go-sg">Песни</button></div>`:`<h2>Песни</h2><p class="muted">Вставь текст любимой японской песни, и приложение подпишет чтения, разберёт строки по словам и озвучит их по слогам. Можно открыть уже сейчас.</p><div class="row"><button class="ghost" id="go-sg">Песни</button></div>`}</section>
     ${started?offline():""}`;
   $("#go-lesson")?.addEventListener("click",()=>startLesson(nl.id));
   $("#go-review")?.addEventListener("click",startSession);
+  $("#go-tr").onclick=()=>{ go("kana"); const q=$("#tr-q"); if(q){ q.scrollIntoView({block:"center"}); q.focus(); } };
   $("#go-ph")?.addEventListener("click",()=>go("phrases")); $("#go-sg").onclick=()=>go("songs");
 }
 function offline(){
@@ -10364,7 +10409,7 @@ function renderReview(){
   if($("#hint")) $("#hint").onclick=()=>{ sess.hinted=true; $("#answer").innerHTML=`<p class="mnem">${esc(type==="k"?n.note:"Начинается на "+[...n.front][0]+(n.note?" · "+n.note:""))}</p>`; $("#hint").remove(); inp.focus(); };
   if(inp){ inp.oninput=()=>$("#preview").textContent=toKana(inp.value,false); inp.focus();
     $("#check").onclick=()=>{ const v=inp.value.trim(); if(!v) return;
-      const ok = type==="k"? isRightKana(n.front,v) : (toKana(v)===n.front || v.toLowerCase()===n.romaji.toLowerCase());
+      const ok = type==="k"? isRightKana(n.front,v) : (toKana(v)===n.front || toKana(v)===kata2hira(n.front) || v.toLowerCase()===n.romaji.toLowerCase());
       showAnswer(ok,v); };
     $("#idk").onclick=()=>showAnswer(false,"");
   } else $("#reveal").onclick=()=>{ if(type==="kw") sess.wres={mistakes:3,hints:0,shown:1}; showAnswer(type==="kw"?false:null,""); };
@@ -10426,6 +10471,7 @@ function renderKana(){
   const grid=rows=>rows.map(r=>`<div class="grow">${[...r.padEnd(5," ")].map(cell).join("")}</div>`).join("");
   $("#kana").innerHTML=`<h1>Справочник</h1><p class="sub">Нажми на знак, чтобы увидеть порядок черт, мнемонику и услышать звук. Цвет: <span class="cell-l n">не пройден</span> <span class="cell-l l">учится</span> <span class="cell-l m">закреплён</span></p>
    <div class="row">${sek()?`<button class="ghost" id="k-ph">Sekiro</button>`:""}<button class="ghost" id="k-sg">Песни</button></div>
+   <div id="trbox"></div>
    <div id="detail"></div>
    <section class="panel"><h2>Хирагана</h2><div class="kgrid">${grid(GRID[0])}</div></section>
    <section class="panel"><h2>Звонкие</h2><div class="kgrid">${grid(GRID[1])}</div></section>
@@ -10444,6 +10490,7 @@ function renderKana(){
     const svg=$("#detail svg"); animate(svg); $("#d-re").onclick=()=>animate(svg); $("#d-say")?.addEventListener("click",()=>speak(k)); $("#d-x").onclick=()=>$("#detail").innerHTML="";
     speak(k); $("#detail").scrollIntoView({behavior:"smooth",block:"nearest"}); });
   $("#k-ph")?.addEventListener("click",()=>go("phrases")); $("#k-sg").onclick=()=>go("songs");
+  renderTranslate($("#trbox"));
   const jp=$("#f-jp"); jp.oninput=()=>$("#f-pv").textContent=toKana(jp.value,false);
   $("#addf").onsubmit=e=>{ e.preventDefault(); const front=toKana(jp.value.trim()); if(!front) return;
     if(words().some(w=>w.front===front)){ $("#f-msg").textContent="Такое слово уже есть."; return; }
